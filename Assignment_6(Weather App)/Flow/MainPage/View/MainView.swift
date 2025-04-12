@@ -12,12 +12,13 @@ struct MainView: View {
     
     var body: some View {
         ZStack {
-            backgroundForConditionIcon(viewModel.currentConditionIcon)
+            backgroundForConditionIcon(viewModel.mainInfo?.status ?? "")
                 .ignoresSafeArea()
             
             ScrollView {
                 mainInfoView(info: viewModel.mainInfo ?? MainInfo(city: "Almaty", temp: 999, status: "error"))
                 hourlyForecast(forecast: viewModel.hourlyForecast)
+                TenDayForecastView(forecast: viewModel.tenDayForecast)
             }
         }
         .task {
@@ -25,6 +26,7 @@ struct MainView: View {
 //            await viewModel.fetchHourlyForecast(city: "Almaty")
 //            viewModel.iconCalculate()
             await viewModel.fetchAllWeather(city: "Almaty")
+            print(viewModel.currentConditionIcon)
         }
     }
     
@@ -73,20 +75,20 @@ struct MainView: View {
     }
     
     @ViewBuilder
-    func backgroundForConditionIcon(_ icon: String) -> some View {
-        if icon.contains("night") {
+    func backgroundForConditionIcon(_ text: String) -> some View {
+        if text.contains("night") {
             Image("nightWallpaper")
                 .resizable()
                 .scaledToFill()
-        } else if icon.contains("113") {
+        } else if text.contains("113") {
             Image("sunnyWallpaper")
                 .resizable()
                 .scaledToFill()
-        } else if icon.contains("cloud") {
+        } else if text.contains("cloudy") {
             Image("cloudWallpaper")
                 .resizable()
                 .scaledToFill()
-        } else if icon.contains("rain") {
+        } else if text.contains("rain") {
             Image("rainWallpaper")
                 .resizable()
                 .scaledToFill()
@@ -113,6 +115,7 @@ struct MainView: View {
             }
         }
     }
+    
 }
 
 func formatHour(from timeString: String) -> String {
@@ -126,6 +129,80 @@ func formatHour(from timeString: String) -> String {
     return timeString
 }
 
+struct TenDayForecastView: View {
+    let forecast: [TenDayForecast] // модель из твоего ответа API
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "clock")
+                Text("10 Day Forecast")
+            }
+            .padding(.leading, 20)
+            .foregroundStyle(.gray)
+            Divider()
+            ForEach(forecast, id: \.id) { day in
+                HStack {
+                    // День недели
+                    Text(day.day)
+                        .frame(width: 50, alignment: .leading)
+                        .foregroundColor(.white)
+                    
+                    // Иконка погоды
+                    AsyncImage(url: URL(string: "https:\(day.icon)")) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                    } placeholder: {
+                        ProgressView()
+                    }
+                    .frame(width: 25, height: 25)
+
+                    Spacer().frame(width: 40)
+
+                    // Минимальная и максимальная температура
+                    Text("\(day.minTemp)°")
+                        .frame(width: 30, alignment: .trailing)
+                        .foregroundColor(.white)
+                    
+                    GeometryReader { geometry in
+                        let total = CGFloat(day.maxTemp - day.minTemp)
+                        let filled = CGFloat(geometry.size.width * (1 - total / 40))
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(LinearGradient(colors: [.cyan, .yellow], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: filled, height: 6)
+                            .padding(.horizontal)
+                    }
+                    .frame(height: 6)
+                    
+                    Text("\(day.maxTemp)°")
+                        .frame(width: 30, alignment: .leading)
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal)
+            }
+        }
+        .padding(.vertical)
+        .background(.thinMaterial)
+        .background(.gray)
+        .cornerRadius(20)
+        .padding(.horizontal)
+    }
+    
+    func dayLabel(for dateStr: String) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateStr) else { return "" }
+
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else {
+            formatter.dateFormat = "E"
+            return formatter.string(from: date)
+        }
+    }
+}
 //#Preview {
 //    MainView()
 //}

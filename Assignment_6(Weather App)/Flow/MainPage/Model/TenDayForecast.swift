@@ -6,6 +6,10 @@
 //
 import UIKit
 
-struct TenDayForecast {
-    
+struct TenDayForecast: Identifiable {
+    let id = UUID()
+    let day: String
+    let icon: String
+    let minTemp: Int
+    let maxTemp: Int
 }

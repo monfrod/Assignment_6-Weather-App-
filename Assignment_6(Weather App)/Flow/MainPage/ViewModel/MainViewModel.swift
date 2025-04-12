@@ -10,7 +10,7 @@ class MainViewModel: ObservableObject {
     @Published var mainInfo: MainInfo?
     @Published var hourlyForecast: [HourlyForecast] = []
     @Published var currentConditionIcon: String = ""
-    @Published var tenDayForecast: [ForecastDay] = []
+    @Published var tenDayForecast: [TenDayForecast] = []
     
     private let service: WeatherServices
     
@@ -49,21 +49,15 @@ class MainViewModel: ObservableObject {
             let forecast = try await service.fetchTenDayForecast(city: city)
             await MainActor.run {
                 print("10-day forecast count: \(forecast.forecast.forecastday.count)")
-                self.tenDayForecast = forecast.forecast.forecastday
+                self.tenDayForecast = forecast.forecast.forecastday.map {
+                    TenDayForecast(day: $0.date.lowercased(),
+                                   icon: $0.day.condition.icon,
+                                   minTemp: Int($0.day.mintempC),
+                                   maxTemp: Int($0.day.maxtempC))
+                }
             }
         } catch {
             print("error in MainViewModel.fetchTenDayForecast: \(error.localizedDescription)")
-        }
-    }
-    
-    func iconCalculate() {
-        if let matchedHour = self.hourlyForecast.first(where: {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm"
-            guard let hourDate = formatter.date(from: $0.time) else { return false }
-            return Calendar.current.component(.hour, from: hourDate) == Calendar.current.component(.hour, from: Date())
-        }) {
-            currentConditionIcon = matchedHour.condition.icon
         }
     }
     
@@ -75,9 +69,9 @@ class MainViewModel: ObservableObject {
             group.addTask {
                 await self.fetchHourlyForecast(city: city)
             }
-        }
-        await MainActor.run {
-            self.iconCalculate()
+            group.addTask {
+                await self.fetchTenDayForecast(city: city)
+            }
         }
     }
     
